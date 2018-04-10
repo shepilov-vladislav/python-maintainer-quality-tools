@@ -1,0 +1,14 @@
+[flake8]
+ignore = F999
+exclude =
+    .nenv,
+    .venv,
+    client,
+    .+/migrations/.+
+    .+/settings/.+
+    .+/tests/.+
+    .+/media/.+
+    .+/dist/.+
+
+max-complexity = 14
+max-line-length = 120

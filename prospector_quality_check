@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from __future__ import print_function
+
+import errno
+import os
+import sys
+
+import anybadge
+from prospector.config import ProspectorConfig
+from prospector.formatters import FORMATTERS
+from prospector.run import Prospector
+
+import formatters.color_helpers
+from formatters import CUSTOM_FORMATTERS
+
+FAILING = 'failing'
+PASSING = 'passing'
+
+PROJECT_PATH = os.environ.get('CI_PROJECT_DIR', os.getcwd())
+EXPECTED_ERRORS = int(os.environ.get('PROSPECTOR_EXPECTED_ERRORS', 0))
+
+
+def silentremove(filename):
+    try:
+        os.remove(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
+
+
+def generate_badge(state):
+    thresholds = {FAILING: 'red', PASSING: 'green'}
+
+    badge = anybadge.Badge('pylint', state, thresholds=thresholds)
+
+    public_directory = os.path.join(PROJECT_PATH, 'public')
+
+    try:
+        os.makedirs(public_directory)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+    badge_filename = os.path.join(public_directory, 'pylint.svg')
+
+    silentremove(badge_filename)
+
+    badge.write_badge(badge_filename)
+
+
+def get_prospector_profile():
+    project_profile = os.path.join(PROJECT_PATH, '.prospector.yaml')
+    profile = project_profile
+    if not os.path.isfile(project_profile):
+        root_dir = os.path.dirname(os.path.abspath(__file__))
+        cfg = os.path.join(root_dir, 'cfg')
+        default_profile = os.path.join(cfg, '.prospector.yaml')
+        profile = default_profile
+    return profile
+
+
+class ProspectorCustom(Prospector):
+
+    def print_messages(self, write_to=None):
+        write_to = write_to or sys.stdout
+
+        output_format = self.config.get_output_format()
+        self.summary['formatter'] = output_format
+        FORMATTERS.update(CUSTOM_FORMATTERS)
+        formatter = FORMATTERS[output_format](
+            self.summary, self.messages, self.config.profile
+        )
+
+        # Produce the output
+        write_to.write(
+            formatter.render(
+                summary=not self.config.messages_only,
+                messages=not self.config.summary_only,
+                profile=self.config.show_profile
+            )
+        )
+        write_to.write('\n')
+
+
+prospector_profile = get_prospector_profile()
+
+PROSPECTOR_OPTIONS = [
+    '--profile',
+    prospector_profile,
+]
+sys.argv = ['fakename']
+sys.argv.extend(PROSPECTOR_OPTIONS)
+sys.argv.append(PROJECT_PATH)
+
+config = ProspectorConfig()
+prospector = ProspectorCustom(config)
+print(prospector.config.get_summary_information())
+prospector.execute()
+
+prospector_messages = prospector.get_messages()
+prospector.print_messages()
+
+summary = prospector.get_summary()
+
+count_errors = summary['message_count']
+
+exit_status = 0
+if count_errors != EXPECTED_ERRORS:
+    print(
+        formatters.color_helpers.red(
+            'prospector expected errors {expected_errors}, '
+            'found {number_errors}!'.format(
+                expected_errors=EXPECTED_ERRORS, number_errors=count_errors
+            )
+        )
+    )
+    exit_status = 1
+    generate_badge(FAILING)
+else:
+    generate_badge(PASSING)
+
+exit(exit_status)
