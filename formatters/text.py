@@ -1,6 +1,6 @@
 from prospector.formatters.base import Formatter
 
-import color_helpers
+from . import color_helpers
 
 __all__ = ('ColorizedTextFormatter', )
 
