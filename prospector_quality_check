@@ -107,7 +107,7 @@ summary = prospector.get_summary()
 count_errors = summary['message_count']
 
 exit_status = 0
-if count_errors <= EXPECTED_ERRORS:
+if count_errors > EXPECTED_ERRORS:
     print(
         formatters.color_helpers.red(
             'prospector expected errors <= {expected_errors}, '
