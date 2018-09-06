@@ -63,25 +63,19 @@ def get_prospector_profile():
 
 class ProspectorCustom(Prospector):
 
-    def print_messages(self, write_to=None):
-        write_to = write_to or sys.stdout
+    def print_messages(self):
+        output_reports = self.config.get_output_report()
 
-        output_format = self.config.get_output_format()
-        self.summary['formatter'] = output_format
-        FORMATTERS.update(CUSTOM_FORMATTERS)
-        formatter = FORMATTERS[output_format](
-            self.summary, self.messages, self.config.profile
-        )
-
-        # Produce the output
-        write_to.write(
-            formatter.render(
-                summary=not self.config.messages_only,
-                messages=not self.config.summary_only,
-                profile=self.config.show_profile
-            )
-        )
-        write_to.write('\n')
+        for report in output_reports:
+            output_format, output_files = report
+            self.summary['formatter'] = output_format
+            FORMATTERS.update(CUSTOM_FORMATTERS)
+            formatter = FORMATTERS[output_format](self.summary, self.messages, self.config.profile)
+            if not output_files:
+                self.write_to(formatter, sys.stdout)
+            for output_file in output_files:
+                with open(output_file, 'w+') as target:
+                    self.write_to(formatter, target)
 
 
 prospector_profile = get_prospector_profile()
