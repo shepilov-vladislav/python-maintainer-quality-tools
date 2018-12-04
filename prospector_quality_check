@@ -31,6 +31,10 @@ def silentremove(filename):
 
 
 def generate_badge(state):
+
+    if not os.environ.get('CI_GENERATE_PYLINT_BADGE', False):
+        return None
+
     thresholds = {FAILING: 'red', PASSING: 'green'}
 
     badge = anybadge.Badge('pylint', state, thresholds=thresholds)
